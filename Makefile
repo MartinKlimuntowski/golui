@@ -31,7 +31,6 @@ run: $(TARGET)
 commit: clean
 	git add $(SRC) $(HDR) Makefile
 	git commit -m "make commit"
-	@echo "Changes committed."
 
 clean:
 	rm -f $(OBJ) $(SRC:.c=.d) $(TARGET)
