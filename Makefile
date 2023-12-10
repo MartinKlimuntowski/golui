@@ -4,7 +4,7 @@ LDFLAGS = -lSDL2
 
 SRC = main.c
 OBJ = $(SRC:.c=.o)
-HDR = $(SRC:.h=.o)
+HDR = $(SRC:.c=.h)
 
 
 
