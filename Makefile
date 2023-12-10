@@ -6,8 +6,6 @@ SRC = main.c
 OBJ = $(SRC:.c=.o)
 HDR = $(SRC:.c=.h)
 
-
-
 TARGET = gol
 
 all: $(TARGET)
