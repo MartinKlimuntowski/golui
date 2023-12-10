@@ -1,10 +1,12 @@
-
 CC = gcc
 CFLAGS = -Wall -Wextra -std=c11
 LDFLAGS = -lSDL2
 
 SRC = main.c
 OBJ = $(SRC:.c=.o)
+HDR = $(SRC:.h=.o)
+
+
 
 TARGET = gol
 
@@ -25,6 +27,11 @@ $(TARGET): $(OBJ)
 
 run: $(TARGET)
 	./$(TARGET)
+
+commit: clean
+	git add $(SRC) $(HDR) Makefile
+	git commit -m "make commit"
+	@echo "Changes committed."
 
 clean:
 	rm -f $(OBJ) $(SRC:.c=.d) $(TARGET)
