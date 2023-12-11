@@ -13,18 +13,35 @@ struct Button
 
 struct Cell
 {
-
+    int x;
+    int y;
+    int active;
 };
 
-
-
+struct Cell cellArray[_H][_V];//[H][V]
 
 struct Button startButton;
-struct Button endButton;
 struct Button clearButton;
 
 SDL_Window *window = NULL;
 SDL_Renderer *renderer = NULL;
+
+
+void initCells()
+{
+    int cellSize = CELL_SIZE_CONST-1; // Set the size of each grid cell to a fixed pixel size
+
+    for(int i = 0; i <= _H; i++)
+    {
+        for(int j = 0; j<= _V; j++)
+        {
+            cellArray[i][j].x = cellSize*i;
+            cellArray[i][j].y = cellSize*j;
+            cellArray[i][j].active = FALSE;
+        }
+    }
+}
+
 
 // Function definition
 void initializeButton(struct Button *button, int x, int y, int width, int height, int isPressed)
@@ -179,16 +196,15 @@ void initButton(Button* button, int x, int y, int width, int height) {
 }
 */
 
-void drawGrid(SDL_Renderer *renderer)
+void drawGrid()
 {
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // Set grid color to white
 
-    int cellSize = GRID_HEIGHT / GRID_SIZE; // Calculate size of each grid cell
+    int cellSize = CELL_SIZE_CONST-1; // Set the size of each grid cell to a fixed pixel size
 
     // Draw vertical lines
     for (int x = 0; x <= SCREEN_WIDTH; x += cellSize)
     {
-
         SDL_RenderDrawLine(renderer, x, 0, x, GRID_HEIGHT);
     }
 
@@ -197,12 +213,35 @@ void drawGrid(SDL_Renderer *renderer)
     {
         SDL_RenderDrawLine(renderer, 0, y, SCREEN_WIDTH, y);
     }
+
+    //cosmetic
+    SDL_RenderDrawLine(renderer, (SCREEN_WIDTH-1), 0, (SCREEN_WIDTH-1), GRID_HEIGHT);
 }
+
+void drawSquares()
+{
+    printf("///////////////////////////////////////////////////////////////\n");
+    for(int i = 0; i < (SCREEN_WIDTH/(CELL_SIZE_CONST-1)); i++)
+    {
+        for(int j=0; j< (GRID_HEIGHT/(CELL_SIZE_CONST-1)); j++)
+        {
+            //SDL_SetRenderDrawColor(renderer, i*5,j*5,64,255);
+            SDL_SetRenderDrawColor(renderer, RED);
+            SDL_Rect tempRect = {cellArray[i][j].x, cellArray[i][j].y, CELL_SIZE, CELL_SIZE};
+            SDL_RenderFillRect(renderer, &tempRect);
+            printf("i: %d \t j:%d \n", i, j);
+        }
+    }
+    printf("///////////////////////////////////////////////////////////////\n");
+}
+
 
 int main()
 {
+    
+    initCells();
     initButtons();
-
+    
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
     {
         printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
@@ -248,8 +287,12 @@ int main()
         //draw buttons
         drawButtons();
 
+        //draw squares
+        drawSquares();
+
         // Draw your grid or game here using SDL functions
         drawGrid(renderer);
+
 
         // Update the screen
         SDL_RenderPresent(renderer);
