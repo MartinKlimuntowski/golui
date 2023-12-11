@@ -17,6 +17,9 @@
 #define BLUE  0, 0, 255, 255    // Blue color
 
 #define GREY 128,128,128,255	//GreyButton
+#define GREY_PRESSED 64,64,64,255	//when button is pressed
+
+
 #define BLACK 0,0,0,255			//White
 #define WHITE 255,255,255,255	//Black
 

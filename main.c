@@ -11,6 +11,14 @@ struct Button
     int isPressed;
 };
 
+struct Cell
+{
+
+};
+
+
+
+
 struct Button startButton;
 struct Button endButton;
 struct Button clearButton;
@@ -40,7 +48,7 @@ void initButtons()
 void drawButtons()
 {
     // Draw button
-    SDL_SetRenderDrawColor(renderer, GREY);
+    SDL_SetRenderDrawColor(renderer, GREY_PRESSED);
     SDL_Rect startButtonRect = {startButton.x, startButton.y, startButton.width, startButton.height};
     SDL_RenderFillRect(renderer, &startButtonRect);
 
