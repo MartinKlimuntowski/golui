@@ -1,6 +1,7 @@
 #include <SDL2/SDL.h>
 #include <stdio.h>
 #include "main.h"
+#include <unistd.h> 
 
 struct Button
 {
@@ -15,10 +16,11 @@ struct Cell
 {
     int x;
     int y;
-    int active;
+    int current;
+    int next;
 };
 
-struct Cell cellArray[_H][_V];//[H][V]
+struct Cell cellArray[_H][_V]; //[H][V]
 
 struct Button startButton;
 struct Button clearButton;
@@ -26,24 +28,96 @@ struct Button clearButton;
 SDL_Window *window = NULL;
 SDL_Renderer *renderer = NULL;
 
-
 void initCells()
 {
-    int cellSize = CELL_SIZE_CONST-1; // Set the size of each grid cell to a fixed pixel size
+    int cellSize = CELL_SIZE_CONST - 1; // Set the size of each grid cell to a fixed pixel size
 
-    for(int i = 0; i <= _H; i++)
+    for (int i = 0; i <= _H; i++)
     {
-        for(int j = 0; j<= _V; j++)
+        for (int j = 0; j <= _V; j++)
         {
-            cellArray[i][j].x = cellSize*i;
-            cellArray[i][j].y = cellSize*j;
-            cellArray[i][j].active = FALSE;
+            cellArray[i][j].x = cellSize * i;
+            cellArray[i][j].y = cellSize * j;
+            cellArray[i][j].current = FALSE;
+        }
+    }
+
+
+    //some starting cells for dev:
+    //234
+    //OOX 2
+    //XOX 3
+    //OXX 4
+
+    cellArray[4][2].current = TRUE;
+    
+    cellArray[2][3].current = TRUE;
+    cellArray[4][3].current = TRUE;
+
+    cellArray[3][4].current = TRUE;
+    cellArray[4][4].current = TRUE;
+
+}
+
+int getNeighbours(int i, int j) {
+    int neighbors = 0;
+
+    int minRow = (i - 1 < 0) ? 0 : i - 1;
+    int maxRow = (i + 1 >= _H) ? _H - 1 : i + 1;
+    int minCol = (j - 1 < 0) ? 0 : j - 1;
+    int maxCol = (j + 1 >= _V) ? _V - 1 : j + 1;
+
+    for (int row = minRow; row <= maxRow; row++) {
+        for (int col = minCol; col <= maxCol; col++) {
+            if (!(row == i && col == j)) {
+                neighbors += cellArray[row][col].current;
+            }
+        }
+    }
+
+    return neighbors;
+}
+
+void calculateCells()
+{
+
+    for (int i = 0; i < (SCREEN_WIDTH / (CELL_SIZE_CONST - 1)); i++)
+    {
+        for (int j = 0; j < (GRID_HEIGHT / (CELL_SIZE_CONST - 1)); j++)
+        {
+            // Any live cell with fewer than two live neighbours dies, as if by underpopulation.
+            // Any live cell with two or three live neighbours lives on to the next generation.
+            // Any live cell with more than three live neighbours dies, as if by overpopulation.
+            // Any dead cell with exactly three live neighbours becomes a live cell, as if by reproduction.
+
+            int neighbours = getNeighbours(i, j);
+
+            if (cellArray[i][j].current)
+            { // If the cell is alive
+                if (neighbours < 2 || neighbours > 3)
+                {
+                    cellArray[i][j].next = FALSE;
+                }
+                else
+                {
+                    cellArray[i][j].next = TRUE;
+                }
+            }
+            else
+            { // If the cell is dead
+                if (neighbours == 3)
+                {
+                    cellArray[i][j].next = TRUE;
+                }
+                else
+                {
+                    cellArray[i][j].next = FALSE;
+                }
+            }
         }
     }
 }
 
-
-// Function definition
 void initializeButton(struct Button *button, int x, int y, int width, int height, int isPressed)
 {
     button->x = x;
@@ -71,7 +145,7 @@ void drawButtons()
 
     // Border top
     SDL_SetRenderDrawColor(renderer, WHITE);
-    SDL_Rect startButtonBorder1 = {startButton.x, startButton.y, startButton.width-BORDER_WIDTH, BORDER_WIDTH};
+    SDL_Rect startButtonBorder1 = {startButton.x, startButton.y, startButton.width - BORDER_WIDTH, BORDER_WIDTH};
     SDL_RenderFillRect(renderer, &startButtonBorder1);
 
     // border left
@@ -96,7 +170,7 @@ void drawButtons()
 
     // Border top
     SDL_SetRenderDrawColor(renderer, WHITE);
-    SDL_Rect clearButtonBorder1 = {clearButton.x, clearButton.y, clearButton.width-BORDER_WIDTH, BORDER_WIDTH};
+    SDL_Rect clearButtonBorder1 = {clearButton.x, clearButton.y, clearButton.width - BORDER_WIDTH, BORDER_WIDTH};
     SDL_RenderFillRect(renderer, &clearButtonBorder1);
 
     // border left
@@ -137,9 +211,9 @@ struct Button {
 // Function to draw the button
 void drawButton(SDL_Renderer* renderer, Button* button) {
     // Draw button background
-    SDL_SetRenderDrawColor(renderer, (button->backgroundColor >> 24) & 0xFF, 
-                                       (button->backgroundColor >> 16) & 0xFF, 
-                                       (button->backgroundColor >> 8) & 0xFF, 
+    SDL_SetRenderDrawColor(renderer, (button->backgroundColor >> 24) & 0xFF,
+                                       (button->backgroundColor >> 16) & 0xFF,
+                                       (button->backgroundColor >> 8) & 0xFF,
                                        button->backgroundColor & 0xFF);
     SDL_Rect buttonRect = { button->x, button->y, button->width, button->height };
     SDL_RenderFillRect(renderer, &buttonRect);
@@ -200,7 +274,7 @@ void drawGrid()
 {
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // Set grid color to white
 
-    int cellSize = CELL_SIZE_CONST-1; // Set the size of each grid cell to a fixed pixel size
+    int cellSize = CELL_SIZE_CONST - 1; // Set the size of each grid cell to a fixed pixel size
 
     // Draw vertical lines
     for (int x = 0; x <= SCREEN_WIDTH; x += cellSize)
@@ -214,42 +288,44 @@ void drawGrid()
         SDL_RenderDrawLine(renderer, 0, y, SCREEN_WIDTH, y);
     }
 
-    //cosmetic
-    SDL_RenderDrawLine(renderer, (SCREEN_WIDTH-1), 0, (SCREEN_WIDTH-1), GRID_HEIGHT);
+    // cosmetic
+    SDL_RenderDrawLine(renderer, (SCREEN_WIDTH - 1), 0, (SCREEN_WIDTH - 1), GRID_HEIGHT);
 }
 
 void drawSquares()
 {
-    printf("///////////////////////////////////////////////////////////////\n");
-    for(int i = 0; i < (SCREEN_WIDTH/(CELL_SIZE_CONST-1)); i++)
+    for (int i = 0; i < (SCREEN_WIDTH / (CELL_SIZE_CONST - 1)); i++)
     {
-        for(int j=0; j< (GRID_HEIGHT/(CELL_SIZE_CONST-1)); j++)
+        for (int j = 0; j < (GRID_HEIGHT / (CELL_SIZE_CONST - 1)); j++)
         {
-            //SDL_SetRenderDrawColor(renderer, i*5,j*5,64,255);
-            SDL_SetRenderDrawColor(renderer, RED);
+            if(cellArray[i][j].next)
+            {
+                SDL_SetRenderDrawColor(renderer, WHITE);
+            }
+            else
+            {
+                SDL_SetRenderDrawColor(renderer, BLACK);
+            }
+
+            // SDL_SetRenderDrawColor(renderer, RED);
             SDL_Rect tempRect = {cellArray[i][j].x, cellArray[i][j].y, CELL_SIZE, CELL_SIZE};
             SDL_RenderFillRect(renderer, &tempRect);
-            printf("i: %d \t j:%d \n", i, j);
         }
     }
-    printf("///////////////////////////////////////////////////////////////\n");
 }
-
 
 int main()
 {
-    
     initCells();
     initButtons();
-    
+
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
     {
         printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
         return -1;
     }
 
-    window = SDL_CreateWindow("Game of Life", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-                              SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
+    window = SDL_CreateWindow("Game of Life", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
 
     if (window == NULL)
     {
@@ -283,16 +359,18 @@ int main()
         SDL_SetRenderDrawColor(renderer, 64, 64, 64, 255);
         SDL_RenderClear(renderer);
 
-
-        //draw buttons
+        // draw buttons
         drawButtons();
 
-        //draw squares
+        sleep(1);
+        //calc squares
+        calculateCells();
+
+        // draw squares
         drawSquares();
 
         // Draw your grid or game here using SDL functions
         drawGrid(renderer);
-
 
         // Update the screen
         SDL_RenderPresent(renderer);
