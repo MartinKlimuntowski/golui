@@ -1,7 +1,17 @@
 #include <SDL2/SDL.h>
 #include <stdio.h>
 #include "main.h"
-#include <unistd.h> 
+#include <unistd.h>
+
+
+typedef enum {
+    STATE_DEFAULT,
+    STATE_START_BUTTON_CLICKED,
+    STATE_CLEAR_BUTTON_CLICKED,
+    STATE_GOL_RUN,
+    STATE_GOL_PAUSED,
+    STATE_GRID_CLICKED
+} State;
 
 struct Button
 {
@@ -10,6 +20,7 @@ struct Button
     int width;
     int height;
     int isPressed;
+    SDL_Rect rect;
 };
 
 struct Cell
@@ -18,6 +29,7 @@ struct Cell
     int y;
     int current;
     int next;
+    SDL_Rect rect;
 };
 
 struct Cell cellArray[_H][_V]; //[H][V]
@@ -28,38 +40,41 @@ struct Button clearButton;
 SDL_Window *window = NULL;
 SDL_Renderer *renderer = NULL;
 
+State currentState = STATE_DEFAULT;
+
 void initCells()
 {
     int cellSize = CELL_SIZE_CONST - 1; // Set the size of each grid cell to a fixed pixel size
 
-    for (int i = 0; i <= _H; i++)
-    {
-        for (int j = 0; j <= _V; j++)
-        {
+    for (int i = 0; i <= _H; i++) {
+        for (int j = 0; j <= _V; j++) {
             cellArray[i][j].x = cellSize * i;
             cellArray[i][j].y = cellSize * j;
             cellArray[i][j].current = FALSE;
+
+            // Populate the SDL_Rect for each cell
+            cellArray[i][j].rect.x = cellSize * i;
+            cellArray[i][j].rect.y = cellSize * j;
+            cellArray[i][j].rect.w = cellSize;
+            cellArray[i][j].rect.h = cellSize;
         }
     }
-
-
     //some starting cells for dev:
     //234
     //OOX 2
     //XOX 3
     //OXX 4
-
     cellArray[4][2].current = TRUE;
-    
+
     cellArray[2][3].current = TRUE;
     cellArray[4][3].current = TRUE;
 
     cellArray[3][4].current = TRUE;
     cellArray[4][4].current = TRUE;
-
 }
 
-int getNeighbours(int i, int j) {
+int getNeighbours(int i, int j)
+{
     int neighbors = 0;
 
     int minRow = (i - 1 < 0) ? 0 : i - 1;
@@ -80,7 +95,6 @@ int getNeighbours(int i, int j) {
 
 void calculateCells()
 {
-
     for (int i = 0; i < (SCREEN_WIDTH / (CELL_SIZE_CONST - 1)); i++)
     {
         for (int j = 0; j < (GRID_HEIGHT / (CELL_SIZE_CONST - 1)); j++)
@@ -125,6 +139,10 @@ void initializeButton(struct Button *button, int x, int y, int width, int height
     button->width = width;
     button->height = height;
     button->isPressed = isPressed;
+    button->rect.x = x;
+    button->rect.y = y;
+    button->rect.w = width;
+    button->rect.h = height;
 }
 
 void initButtons()
@@ -139,7 +157,8 @@ void initButtons()
 void drawButtons()
 {
     // Draw button
-    SDL_SetRenderDrawColor(renderer, GREY_PRESSED);
+//    if()
+    SDL_SetRenderDrawColor(renderer, GREY);
     SDL_Rect startButtonRect = {startButton.x, startButton.y, startButton.width, startButton.height};
     SDL_RenderFillRect(renderer, &startButtonRect);
 
@@ -189,86 +208,10 @@ void drawButtons()
     SDL_RenderFillRect(renderer, &clearButtonBorder4);
 }
 
-/*
-// Function pointers for drawing the button and its borders
-typedef void (*DrawFunction)(SDL_Renderer*, Button*);
-
-struct Button {
-    int x;
-    int y;
-    int width;
-    int height;
-    int isPressed;
-    int borderWidth; // Border width
-    Uint32 borderColorTop; // Border color for top
-    Uint32 borderColorLeft; // Border color for left
-    Uint32 borderColorBottom; // Border color for bottom
-    Uint32 borderColorRight; // Border color for right
-    Uint32 backgroundColor; // Button's background color
-    DrawFunction draw; // Function pointer for drawing the button
-};
-
-// Function to draw the button
-void drawButton(SDL_Renderer* renderer, Button* button) {
-    // Draw button background
-    SDL_SetRenderDrawColor(renderer, (button->backgroundColor >> 24) & 0xFF,
-                                       (button->backgroundColor >> 16) & 0xFF,
-                                       (button->backgroundColor >> 8) & 0xFF,
-                                       button->backgroundColor & 0xFF);
-    SDL_Rect buttonRect = { button->x, button->y, button->width, button->height };
-    SDL_RenderFillRect(renderer, &buttonRect);
-
-    // Draw top border
-    SDL_SetRenderDrawColor(renderer, (button->borderColorTop >> 24) & 0xFF,
-                                      (button->borderColorTop >> 16) & 0xFF,
-                                      (button->borderColorTop >> 8) & 0xFF,
-                                      button->borderColorTop & 0xFF);
-    SDL_Rect topBorderRect = { button->x, button->y, button->width - button->borderWidth, button->borderWidth };
-    SDL_RenderFillRect(renderer, &topBorderRect);
-
-    // Draw left border
-    SDL_SetRenderDrawColor(renderer, (button->borderColorLeft >> 24) & 0xFF,
-                                      (button->borderColorLeft >> 16) & 0xFF,
-                                      (button->borderColorLeft >> 8) & 0xFF,
-                                      button->borderColorLeft & 0xFF);
-    SDL_Rect leftBorderRect = { button->x, button->y, button->borderWidth, button->height };
-    SDL_RenderFillRect(renderer, &leftBorderRect);
-
-    // Draw bottom border
-    SDL_SetRenderDrawColor(renderer, (button->borderColorBottom >> 24) & 0xFF,
-                                      (button->borderColorBottom >> 16) & 0xFF,
-                                      (button->borderColorBottom >> 8) & 0xFF,
-                                      button->borderColorBottom & 0xFF);
-    SDL_Rect bottomBorderRect = { button->x + button->borderWidth, button->y + button->height - button->borderWidth,
-                                  button->width - button->borderWidth, button->borderWidth };
-    SDL_RenderFillRect(renderer, &bottomBorderRect);
-
-    // Draw right border
-    SDL_SetRenderDrawColor(renderer, (button->borderColorRight >> 24) & 0xFF,
-                                      (button->borderColorRight >> 16) & 0xFF,
-                                      (button->borderColorRight >> 8) & 0xFF,
-                                      button->borderColorRight & 0xFF);
-    SDL_Rect rightBorderRect = { button->x + button->width - button->borderWidth, button->y + button->borderWidth,
-                                 button->borderWidth, button->height - button->borderWidth * 2 };
-    SDL_RenderFillRect(renderer, &rightBorderRect);
+int pointInsideRect(int x, int y, SDL_Rect rect)
+{
+    return (x >= rect.x && x < rect.x + rect.w && y >= rect.y && y < rect.y + rect.h);
 }
-
-// Function to initialize a button
-void initButton(Button* button, int x, int y, int width, int height) {
-    button->x = x;
-    button->y = y;
-    button->width = width;
-    button->height = height;
-    button->isPressed = 0;
-    button->borderWidth = 2;
-    button->backgroundColor = GREY;
-    button->borderColorTop = WHITE;
-    button->borderColorLeft = WHITE;
-    button->borderColorBottom = BLACK;
-    button->borderColorRight = BLACK;
-    button->draw = drawButton;
-}
-*/
 
 void drawGrid()
 {
@@ -310,12 +253,28 @@ void drawSquares()
             // SDL_SetRenderDrawColor(renderer, RED);
             SDL_Rect tempRect = {cellArray[i][j].x, cellArray[i][j].y, CELL_SIZE, CELL_SIZE};
             SDL_RenderFillRect(renderer, &tempRect);
+
+            cellArray[i][j].current = cellArray[i][j].next;
+        }
+    }
+    sleep(1);
+}
+
+void clearCells()
+{
+    for (int i = 0; i < (SCREEN_WIDTH / (CELL_SIZE_CONST - 1)); i++)
+    {
+        for (int j = 0; j < (GRID_HEIGHT / (CELL_SIZE_CONST - 1)); j++)
+        {
+            cellArray[i][j].next = FALSE;
+            cellArray[i][j].current = FALSE;
         }
     }
 }
 
 int main()
 {
+
     initCells();
     initButtons();
 
@@ -352,6 +311,45 @@ int main()
             case SDL_QUIT:
                 running = SDL_FALSE;
                 break;
+
+            case SDL_MOUSEBUTTONDOWN:
+                if (event.button.button == SDL_BUTTON_LEFT) {
+                    int mouseX = event.button.x;
+                    int mouseY = event.button.y;
+
+                    if (pointInsideRect(mouseX, mouseY, startButton.rect))
+                    {
+                        currentState = STATE_START_BUTTON_CLICKED;
+                        printf("Start clicked!\n");
+                        ///////////////////
+                        startButton.isPressed = TRUE;
+                    }
+                    else if (pointInsideRect(mouseX, mouseY, clearButton.rect))
+                    {
+                        currentState = STATE_CLEAR_BUTTON_CLICKED;
+                        printf("Clear Button clicked!\n");
+                        ///////////////////
+                        clearButton.isPressed = TRUE;
+                        clearCells();
+                    }
+                    else
+                    {
+                        currentState = STATE_GRID_CLICKED;
+                        printf("Grid clicked at (%d, %d)!\n", mouseX, mouseY);
+                        // actions for grid click
+
+                    }
+                }
+                break;
+            case SDL_MOUSEBUTTONUP:
+                if (event.button.button == SDL_BUTTON_LEFT)
+                {
+                    // Reset button states on mouse up
+//                    startButton.isPressed = FALSE;
+//                    clearButton.isPressed = FALSE;
+                    currentState = STATE_DEFAULT;
+                }
+                break;
             }
         }
 
@@ -359,18 +357,18 @@ int main()
         SDL_SetRenderDrawColor(renderer, 64, 64, 64, 255);
         SDL_RenderClear(renderer);
 
-        // draw buttons
+        // Draw buttons
         drawButtons();
 
-        sleep(1);
-        //calc squares
+        //sleep(1);
+
         calculateCells();
 
-        // draw squares
+        // Draw squares
         drawSquares();
 
-        // Draw your grid or game here using SDL functions
-        drawGrid(renderer);
+        // Draw grid
+        drawGrid();
 
         // Update the screen
         SDL_RenderPresent(renderer);
