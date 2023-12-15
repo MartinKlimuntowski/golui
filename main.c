@@ -1,17 +1,14 @@
 #include <SDL2/SDL.h>
 #include <stdio.h>
 #include "main.h"
-#include <unistd.h>
+//#include <unistd.h>
 
-
-typedef enum {
-    STATE_DEFAULT,
-    STATE_START_BUTTON_CLICKED,
-    STATE_CLEAR_BUTTON_CLICKED,
-    STATE_GOL_RUN,
-    STATE_GOL_PAUSED,
-    STATE_GRID_CLICKED
-} State;
+enum GameState {
+    STATE_NULL,
+    STATE_INIT,
+    STATE_PAUSED,
+    STATE_START,
+};
 
 struct Button
 {
@@ -37,10 +34,11 @@ struct Cell cellArray[_H][_V]; //[H][V]
 struct Button startButton;
 struct Button clearButton;
 
+enum GameState nowState = STATE_NULL;
+enum GameState nextState = STATE_PAUSED;
+
 SDL_Window *window = NULL;
 SDL_Renderer *renderer = NULL;
-
-State currentState = STATE_DEFAULT;
 
 void initCells()
 {
@@ -213,6 +211,26 @@ int pointInsideRect(int x, int y, SDL_Rect rect)
     return (x >= rect.x && x < rect.x + rect.w && y >= rect.y && y < rect.y + rect.h);
 }
 
+void getClickedCellIndices(int clickX, int clickY, int *row, int *col) {
+    *row = -1;
+    *col = -1;
+
+    for (int i = 0; i < _H; i++) {
+        for (int j = 0; j < _V; j++) {
+            if (clickX >= cellArray[i][j].rect.x &&
+                clickX < cellArray[i][j].rect.x + cellArray[i][j].rect.w &&
+                clickY >= cellArray[i][j].rect.y &&
+                clickY < cellArray[i][j].rect.y + cellArray[i][j].rect.h) {
+                // Set the row and column indices if the click coordinates are within the cell's SDL_Rect
+                *row = i;
+                *col = j;
+                return;
+            }
+        }
+    }
+}
+
+
 void drawGrid()
 {
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // Set grid color to white
@@ -257,7 +275,11 @@ void drawSquares()
             cellArray[i][j].current = cellArray[i][j].next;
         }
     }
-    sleep(1);
+
+    if(nextState == STATE_START)
+    {
+        sleep(1);
+    }
 }
 
 void clearCells()
@@ -272,9 +294,41 @@ void clearCells()
     }
 }
 
+
+/*
+state machine:
+switch(nextstate)
+{
+    case STATE1:
+        if(nextstate != nowstate)
+        {//first entry
+            nowstate = state1
+        }
+        else
+        {//loop entry
+            next_state = STATE2;
+        }
+
+        if(nextstate!= nowstate)
+        {
+
+        }
+        break;
+    case STATE2:
+
+        break;
+    case STATE3:
+
+        break;
+    default:
+        return 1;
+
+}
+*/
+
+
 int main()
 {
-
     initCells();
     initButtons();
 
@@ -301,56 +355,65 @@ int main()
 
     // Main loop
     int running = 1;
-    while (running)
+    while(running)
     {
         SDL_Event event;
         while (SDL_PollEvent(&event))
         {
             switch (event.type)
             {
-            case SDL_QUIT:
-                running = SDL_FALSE;
-                break;
-
-            case SDL_MOUSEBUTTONDOWN:
-                if (event.button.button == SDL_BUTTON_LEFT) {
-                    int mouseX = event.button.x;
-                    int mouseY = event.button.y;
-
-                    if (pointInsideRect(mouseX, mouseY, startButton.rect))
-                    {
-                        currentState = STATE_START_BUTTON_CLICKED;
-                        printf("Start clicked!\n");
-                        ///////////////////
-                        startButton.isPressed = TRUE;
-                    }
-                    else if (pointInsideRect(mouseX, mouseY, clearButton.rect))
-                    {
-                        currentState = STATE_CLEAR_BUTTON_CLICKED;
-                        printf("Clear Button clicked!\n");
-                        ///////////////////
-                        clearButton.isPressed = TRUE;
-                        clearCells();
-                    }
-                    else
-                    {
-                        currentState = STATE_GRID_CLICKED;
-                        printf("Grid clicked at (%d, %d)!\n", mouseX, mouseY);
-                        // actions for grid click
-
-                    }
-                }
-                break;
-            case SDL_MOUSEBUTTONUP:
-                if (event.button.button == SDL_BUTTON_LEFT)
+                case SDL_QUIT:
                 {
-                    // Reset button states on mouse up
-//                    startButton.isPressed = FALSE;
-//                    clearButton.isPressed = FALSE;
-                    currentState = STATE_DEFAULT;
+                    running = SDL_FALSE;
                 }
                 break;
-            }
+
+                case SDL_MOUSEBUTTONDOWN:
+                {
+                    if (event.button.button == SDL_BUTTON_LEFT)
+                    {
+                        int mouseX = event.button.x;
+                        int mouseY = event.button.y;
+
+                        if (pointInsideRect(mouseX, mouseY, startButton.rect))
+                        {
+                            printf("Start clicked!\n");
+                            ///////////////////
+                            startButton.isPressed = TRUE;
+                            nextState = STATE_START;
+                        }
+                        else if (pointInsideRect(mouseX, mouseY, clearButton.rect))
+                        {
+                            printf("Clear Button clicked!\n");
+                            ///////////////////
+                            clearButton.isPressed = TRUE;
+                            clearCells();
+                            nextState = STATE_PAUSED;
+                        }
+                        else
+                        {
+                            int clickedRow, clickedCol;
+                            getClickedCellIndices(mouseX, mouseY, &clickedRow, &clickedCol);
+                            if(nextState == STATE_PAUSED)
+                            {
+                                if (clickedRow != -1 && clickedCol != -1)
+                                {
+                                    printf("Cell clicked at (%d, %d)\n", clickedRow, clickedCol);
+                                    cellArray[clickedRow][clickedCol].next = !cellArray[clickedRow][clickedCol].current;
+
+                                }
+                            }
+                            printf("Grid clicked at (%d, %d)!\n", mouseX, mouseY);
+                        }
+                    }
+
+                }break; //SDL_MOUSEBUTTONDOWN break
+                default:
+                {
+                    //printf("no user input\n");
+                }
+                break;
+            }//end of event switch
         }
 
         // Clear the screen
@@ -360,9 +423,10 @@ int main()
         // Draw buttons
         drawButtons();
 
-        //sleep(1);
-
-        calculateCells();
+        if(nextState == STATE_START)
+        {
+            calculateCells();
+        }
 
         // Draw squares
         drawSquares();
@@ -372,7 +436,8 @@ int main()
 
         // Update the screen
         SDL_RenderPresent(renderer);
-    }
+
+    }//while running end
 
     // Clean up
     SDL_DestroyRenderer(renderer);
